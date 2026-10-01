@@ -1,0 +1,12 @@
+#!/bin/sh
+# Copy the programs to ~/triputer, or upload the files supplied as arguments.
+set -eu
+. "$(dirname "$0")/pi-config.sh"
+ssh "$PI" 'mkdir -p -- "$HOME/triputer"'
+if [ "$#" -eq 0 ]; then
+    set -- "$PROJECT_ROOT/controllers" "$PROJECT_ROOT/interactions" \
+        "$PROJECT_ROOT/diagnostics" "$PROJECT_ROOT/tests" \
+        "$PROJECT_ROOT/THIRD_PARTY_LICENSES.md" "$PROJECT_ROOT/README.md" \
+        "$PROJECT_ROOT/docs"
+fi
+exec scp -r "$@" "$PI:triputer/"

@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+. "$(dirname "$0")/pi-config.sh"
+exec ssh "$PI" "$@"
