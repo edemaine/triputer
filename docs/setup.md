@@ -226,7 +226,7 @@ faster host writes do not guarantee that the controller displays every frame.
 
 ## Run an interaction
 
-Once setup is complete, try [coloring](../README.md#coloring) or
+Once setup is complete, try [Fill](../README.md#fill), [coloring](../README.md#coloring), or
 [color ripples](../README.md#color-ripples). Both read BLE MIDI directly;
 the ALSA MIDI check above is a diagnostic and is not required for either game.
 

@@ -28,6 +28,8 @@ PALETTE = (
 class Coloring:
     """One canvas per controller; taps change pixels, pressure and holds do not."""
 
+    palette = PALETTE
+
     def __init__(self, base_note=None, brightness=0.25):
         self.base_note = base_note
         self.brightness = brightness
@@ -61,11 +63,16 @@ class Coloring:
         position = note_to_position(event.note, bank)
         row, column = position
         pad = (row - 1) * 4 + column - 1
-        self.pixels[pad] = (self.pixels[pad] + 1) % len(PALETTE)
-        return PALETTE[self.pixels[pad]][0], position
+        if not self.advance(pad):
+            return None
+        return self.palette[self.pixels[pad]][0], position
+
+    def advance(self, pad):
+        self.pixels[pad] = (self.pixels[pad] + 1) % len(self.palette)
+        return True
 
     def render(self, now):
-        return [tuple(round(channel * self.brightness) for channel in PALETTE[index][1])
+        return [tuple(round(channel * self.brightness) for channel in self.palette[index][1])
                 for index in self.pixels]
 
 

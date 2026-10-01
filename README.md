@@ -20,6 +20,35 @@ different toys and games, instead of relying on what's commercially available.
 See [Setup](docs/setup.md) for Pi installation, Bluetooth pairing,
 upload instructions, and the pad-color diagnostic.
 
+## Fill
+
+Fill the grid one color at a time. Every pad starts black; tapping it turns it
+white. White pads stay white until all 16 match. Then each new tap can turn a
+white pad blue, and so on. Each pad advances at most once per round; holding
+or repeatedly tapping an already-filled pad cannot skip ahead.
+
+The sequence alternates contrasting colors: **black → white → blue → yellow
+→ magenta → green → red → cyan → black**, then repeats. Returning to black is
+another round to fill, not an automatic reset.
+
+Completing a round earns a short victory lap: the whole grid pulses, a trail
+travels around the edge and spirals into the center, then the grid pulses again.
+All three phases use the previous round's color against the completed color
+(so completing white produces black pulses and a dark trail). After about 3.25 seconds it settles
+back to the completed color. Taps during the
+celebration are ignored; release and tap again to start filling the next color.
+The effect respects `--brightness` and plays even when the completed color is black.
+
+```sh
+./scripts/upload
+./scripts/pi -t 'cd ~/triputer && python3 interactions/fill.py'
+```
+
+Each controller progresses independently. Bank changes and reconnections keep
+its progress during the same run; restarting starts black again. Stop other LED
+interactions first. Ctrl+C stops and clears the LEDs. Module execution works
+with `python3 -m interactions.fill`; options are the same as Coloring below.
+
 ## Coloring
 
 Draw 4×4 pixel art by tapping pads. Every pixel starts black. Each tap advances
