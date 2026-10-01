@@ -5,6 +5,15 @@ See THIRD_PARTY_LICENSES.md for the MIT license.
 """
 
 
+BANK_BASES = (4, 36, 52, 68)
+
+
+def note_bank(note, base_note=None):
+    """Find the physical pad bank, or use an explicit custom note range."""
+    bases = BANK_BASES if base_note is None else (base_note,)
+    return next((base for base in bases if 0 <= note - base < 16), None)
+
+
 def note_to_position(note: int, base_note: int = 4) -> tuple[int, int] | None:
     """Return (row, column), both 1-based from bottom-left, or None off-grid."""
     index = note - base_note

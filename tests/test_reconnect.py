@@ -8,7 +8,8 @@ from types import SimpleNamespace
 from controllers.bluetooth import BleMidiDecoder, BluetoothSession, BusPool, paired_controllers, GioBus
 from controllers.bluetooth import CHARACTERISTIC, DEVICE
 from controllers.midi import MidiEvent
-from interactions.ripple import ControllerGroup, RippleWorker, Ripples
+from interactions.runtime import ControllerGroup
+from interactions.ripple import RippleWorker, Ripples
 
 
 class BleMidiTests(unittest.TestCase):

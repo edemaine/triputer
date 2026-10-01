@@ -226,9 +226,9 @@ faster host writes do not guarantee that the controller displays every frame.
 
 ## Run an interaction
 
-Once setup is complete, follow the [color ripple instructions](../README.md#color-ripples).
-Ripples read BLE MIDI directly; the ALSA MIDI check above is a diagnostic
-and is not required to run ripples.
+Once setup is complete, try [coloring](../README.md#coloring) or
+[color ripples](../README.md#color-ripples). Both read BLE MIDI directly;
+the ALSA MIDI check above is a diagnostic and is not required for either game.
 
 ## Development checks
 
@@ -240,7 +240,8 @@ Direct execution also works: `python3 interactions/ripple.py` or
 `python3 diagnostics/led_test.py`. When using a script path, you can run from
 any directory; imports are resolved relative to the script.
 
-Both programs share the color encoder in `controllers/jpmini.py`. The LED test uses
+All interactions share connection management in `interactions/runtime.py` and
+the color encoder in `controllers/jpmini.py`. The LED test uses
 `controllers/midi.py` and `controllers/bluetooth.py`; ripples use GIO's thread-safe D-Bus connections in
 `controllers/bluetooth.py` for address-specific input and output. To check
 animation, bank mapping, input parsing, and reconnection without hardware:

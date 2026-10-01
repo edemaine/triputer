@@ -4,11 +4,7 @@
 import argparse
 import colorsys
 import math
-import re
-import signal
 import sys
-import threading
-import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -16,11 +12,8 @@ if __name__ == "__main__" and not __package__:
     # Direct execution needs the project root to find sibling packages.
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from controllers.bluetooth import (
-    BluetoothSession, BusPool, managed_objects, paired_controllers,
-    start_dbus_loop,
-)
-from controllers.jpmini import note_to_position
+from controllers.jpmini import note_to_position, note_bank
+from interactions.runtime import InteractionWorker, add_arguments, validate_arguments, run
 
 PALETTES = {
     base: [colorsys.hsv_to_rgb((i / 16 + shift) % 1, 1, 1) for i in range(16)]
@@ -30,8 +23,6 @@ DISTANCES = [
     [math.hypot(a // 4 - b // 4, a % 4 - b % 4) for b in range(16)]
     for a in range(16)
 ]
-# Consecutive banks starting at 36, plus the observed 4–19 preset.
-BANK_BASES = tuple(PALETTES)
 
 
 @dataclass
@@ -58,9 +49,13 @@ class Ripples:
         self.palette = (PALETTES[4] if base_note is not None else
                         PALETTES[initial_bank] if initial_bank is not None else None)
 
+    def reconnect(self):
+        """Forget missed releases and old ripples, keeping the selected palette."""
+        self.sources.clear()
+        self.held.clear()
+
     def bank_for(self, note):
-        bases = BANK_BASES if self.base_note is None else (self.base_note,)
-        return next((base for base in bases if 0 <= note - base < 16), None)
+        return note_bank(note, self.base_note)
 
     def handle(self, event):
         bank = self.bank_for(event.note)
@@ -139,163 +134,25 @@ class Ripples:
         return [tuple(round(c * self.brightness * 255) for c in color) for color in colors]
 
 
-class RippleWorker(threading.Thread):
-    """One reconnect loop and animation per controller; no shared pad state."""
-
+class RippleWorker(InteractionWorker):
     def __init__(self, address, args, session_factory):
-        super().__init__(name=f"ripple-{address}", daemon=True)
-        self.address = address
-        self.args = args
-        self.session_factory = session_factory
-        self.stop_event = threading.Event()
-        self.frames = self.events = 0
-
-    def run(self):
-        failures = 0
-        last_bank = None
-        while not self.stop_event.is_set():
-            session = None
-            try:
-                session = self.session_factory(self.address, self.args.chunk_delay)
-                session.open(self.stop_event)
-                # Discard held keys, tails, and queued events from the old link.
-                animation = Ripples(
-                    self.args.base_note, self.args.brightness, self.args.speed,
-                    self.args.period, self.args.fade,
-                    initial_bank=last_bank,
-                )
-                connected_at = time.monotonic()
-                unmapped = set()
-                print(f"[{self.address}] Connected; ripples ready.", flush=True)
-                while not self.stop_event.is_set():
-                    frame_start = time.monotonic()
-                    for event in session.drain():
-                        if animation.bank_for(event.note) is None and event.note not in unmapped:
-                            unmapped.add(event.note)
-                            print(f"[{self.address}] Unmapped note {event.note}; use --base-note for a custom preset.", flush=True)
-                        change = animation.handle(event)
-                        last_bank = animation.active_bank
-                        if change:
-                            action, (row, column) = change
-                            print(f"[{self.address}] {action}: row {row}, column {column}", flush=True)
-                    session.send(animation.render(time.monotonic()))
-                    self.frames += 1
-                    if time.monotonic() - connected_at >= 5:
-                        failures = 0
-                    self.stop_event.wait(max(0, 1 / self.args.fps - (time.monotonic() - frame_start)))
-            except Exception as error:
-                if not self.stop_event.is_set():
-                    failures += 1
-                    delay = min(15, 2 ** min(failures, 4))
-                    print(f"[{self.address}] {error}; retrying in {delay}s.", flush=True)
-            finally:
-                if session is not None:
-                    self.events += session.events
-                    try:
-                        session.close(clear=self.stop_event.is_set())
-                    except Exception as error:
-                        print(f"[{self.address}] Session cleanup: {error}", flush=True)
-            if not self.stop_event.is_set():
-                self.stop_event.wait(delay)
-        print(f"[{self.address}] Stopped; {self.events} MIDI events, {self.frames} grids sent.", flush=True)
-
-
-class ControllerGroup:
-    def __init__(self, factory):
-        self.factory = factory
-        self.workers = {}
-
-    def update(self, addresses):
-        for address, worker in list(self.workers.items()):
-            if address not in addresses:
-                worker.stop_event.set()
-            if not worker.is_alive():
-                del self.workers[address]
-        for address in sorted(addresses):
-            if address not in self.workers:
-                worker = self.factory(address)
-                self.workers[address] = worker
-                worker.start()
-
-    def close(self):
-        for worker in self.workers.values():
-            worker.stop_event.set()
-        for worker in self.workers.values():
-            # Calls have explicit timeouts. Finish cleanup before closing buses;
-            # an arbitrary join deadline could leave a worker using a closed bus.
-            worker.join()
+        super().__init__(address, args, session_factory,
+                         lambda: Ripples(args.base_note, args.brightness, args.speed,
+                                         args.period, args.fade), "ripples")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--address", action="append", help="Use only this paired Bluetooth address; repeat for multiple devices")
-    parser.add_argument("--base-note", type=int, help=f"Use a fixed bottom-left note instead of automatic banks {BANK_BASES}")
-    parser.add_argument("--brightness", type=float, default=0.25, help="Maximum brightness, 0–1 (default: 0.25)")
-    parser.add_argument("--fps", type=float, default=8, help="Target updates/second (default: 8)")
-    parser.add_argument("--chunk-delay", type=float, default=0.03, help="BLE chunk gap in seconds (default: 0.03)")
+    add_arguments(parser)
     parser.add_argument("--speed", type=float, default=2.5, help="Ring speed in pads/second (default: 2.5)")
     parser.add_argument("--period", type=float, default=1.2, help="Seconds between rings while held (default: 1.2)")
     parser.add_argument("--fade", type=float, default=2, help="Seconds to fade after release (default: 2)")
-    parser.add_argument("--duration", type=float, help="Stop after this many seconds; otherwise run until Ctrl+C")
     args = parser.parse_args()
-    if args.address and any(not re.fullmatch(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}", a) for a in args.address):
-        parser.error("address must have the form AA:BB:CC:DD:EE:FF")
-    if args.base_note is not None and not 0 <= args.base_note <= 112:
-        parser.error("base-note must be between 0 and 112")
-    for name, low, high in (
-        ("brightness", 0.001, 1), ("fps", 1, 60), ("chunk_delay", 0.005, 1),
-        ("speed", 0.1, 20), ("period", 0.1, 30), ("fade", 0.1, 60),
-    ):
+    validate_arguments(parser, args)
+    for name, low, high in (("speed", 0.1, 20), ("period", 0.1, 30), ("fade", 0.1, 60)):
         if not low <= getattr(args, name) <= high:
-            parser.error(f"{name.replace('_', '-')} must be between {low} and {high}")
-    if args.duration is not None and not (math.isfinite(args.duration) and args.duration > 0):
-        parser.error("duration must be a positive finite number")
-
-    def stop(signum, frame):
-        raise KeyboardInterrupt
-
-    # Also clear lights when stopped via SSH or a process supervisor.
-    for name in ("SIGTERM", "SIGHUP"):
-        if hasattr(signal, name):
-            signal.signal(getattr(signal, name), stop)
-    buses = BusPool()
-    group = ControllerGroup(lambda address: RippleWorker(
-        address, args,
-        lambda address, delay: BluetoothSession(address, delay, buses.get(address)),
-    ))
-    loop = thread = bus = None
-    status = 0
-    started = time.monotonic()
-    try:
-        loop, thread = start_dbus_loop()
-        from gi.repository import GLib
-        print("Waiting for paired JP MINIs. Hold pads for ripples; Ctrl+C to stop.", flush=True)
-        last_error = None
-        while args.duration is None or time.monotonic() - started < args.duration:
-            try:
-                bus = buses.get("discovery")
-                addresses = {a.upper() for a in args.address} if args.address else paired_controllers(managed_objects(bus))
-                group.update(addresses)
-                last_error = None
-            except GLib.Error as error:
-                if str(error) != last_error:
-                    print(f"Bluetooth discovery unavailable; will retry: {error}", flush=True)
-                    last_error = str(error)
-            remaining = 2 if args.duration is None else min(2, max(0, args.duration - (time.monotonic() - started)))
-            time.sleep(remaining)
-    except KeyboardInterrupt:
-        print("\nStopping ripples.", flush=True)
-    except Exception as error:
-        print(f"Error: {error}", file=sys.stderr, flush=True)
-        status = 1
-    finally:
-        group.close()
-        if loop is not None:
-            loop.quit()
-            thread.join(timeout=2)
-        buses.close()
-        print("Stopped. Available pads cleared; Bluetooth pairings preserved.", flush=True)
-    return status
+            parser.error(f"{name} must be between {low} and {high}")
+    return run(args, RippleWorker, "Hold pads for ripples")
 
 
 if __name__ == "__main__":

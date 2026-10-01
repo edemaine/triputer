@@ -20,6 +20,26 @@ different toys and games, instead of relying on what's commercially available.
 See [Setup](docs/setup.md) for Pi installation, Bluetooth pairing,
 upload instructions, and the pad-color diagnostic.
 
+## Coloring
+
+Draw 4×4 pixel art by tapping pads. Every pixel starts black. Each tap advances
+one step through **red → orange → yellow → green → cyan → blue → purple → pink
+→ white → black**. Holding a pad or changing pressure does not cycle it again.
+
+```sh
+./scripts/upload
+./scripts/pi -t 'cd ~/triputer && python3 interactions/coloring.py'
+```
+
+Each controller has its own canvas. Switching banks keeps the same drawing and
+physical pad positions. Drawings survive Bluetooth reconnections during the
+same run; restarting the program starts fresh. Ctrl+C stops and clears the LEDs.
+Stop any other LED interaction before running coloring.
+
+Module execution also works: `python3 -m interactions.coloring`. Options include
+`--brightness`, `--address` (repeat for multiple controllers), `--base-note`,
+`--fps`, `--chunk-delay`, and `--duration`, as with ripples.
+
 ## Color ripples
 
 Press pads on a JP MINI to send rings of color across its 4×4 grid.
