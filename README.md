@@ -20,6 +20,10 @@ different toys and games, instead of relying on what's commercially available.
 See [Setup](docs/setup.md) for Pi installation, Bluetooth pairing,
 upload instructions, and the pad-color diagnostic.
 
+Triputer automatically restores **Preset 1** if a child changes a JP MINI's
+preset. See [preset selection](docs/setup.md#jp-mini-preset-selection) for details
+and manual recovery.
+
 ## Fill
 
 Fill the grid one color at a time. Every pad starts black; tapping it turns it

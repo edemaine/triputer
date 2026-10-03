@@ -214,8 +214,9 @@ the pad note numbers match a particular preset or bank.
 MIDI output includes each note's row and column, numbered 1–4 from the
 bottom-left: rows increase upward and columns increase to the right. The default
 mapping uses notes 4–19 in row order (4 = bottom-left, 7 = bottom-right,
-16 = top-left, 19 = top-right). Use `--base-note N` for a preset with a different
-starting note. Notes outside the configured 16-note range are marked as unmapped.
+16 = top-left, 19 = top-right). Use `--base-note N` for a different consecutive
+note range; it cannot correct a reordered layout. Notes outside the configured
+16-note range are marked as unmapped.
 
 LED output uses the JP MINI's vendor Bluetooth service AE40, characteristic
 AE41, alongside the normal MIDI input. The encoder follows
@@ -223,6 +224,34 @@ AE41, alongside the normal MIDI input. The encoder follows
 its license in [THIRD_PARTY_LICENSES.md](../THIRD_PARTY_LICENSES.md). Each grid is
 sent in 20-byte chunks spaced 30 ms apart. `--chunk-delay` can adjust that pacing;
 faster host writes do not guarantee that the controller displays every frame.
+
+## JP MINI preset selection
+
+Triputer's interactions automatically keep each JP MINI on
+**Preset 1**. They check on connection, before processing pad input, and about
+once per second while idle. If a child selects another preset, Triputer restores
+Preset 1 and verifies the result. Other controller settings, including the bank,
+are preserved. Game progress stays intact; held pads and presses received during
+correction are cleared. If verification fails, input pauses while that controller
+retries; other controllers continue independently.
+
+For manual recovery or the LED diagnostic, press **SHIFT**, then the pad labeled
+**PRESET 1**, and leave settings mode before playing.
+
+Presets and banks are different: **PAD BANK** cycles banks within a preset,
+while **SHIFT + a PRESET pad** selects a preset that can change the note layout.
+An accidental preset selection can therefore make presses affect the wrong
+squares even while Bluetooth remains connected.
+
+If a Fill square refuses to fill, or presses affect the wrong positions, return
+to **Preset 1** and try again. This has resolved a case where another preset
+used nonconsecutive drum notes. Cycling PAD BANK alone did not fix it; a server
+restart or re-pairing was not needed.
+
+The guard uses the settings protocol identified in **KuSuite 5.3**, the
+[manufacturer's editor](https://www.kuwee.cn/download). See
+[JP MINI preset detection](jpmini-protocol.md) for protocol details and a
+read-only diagnostic. Custom preset layouts are not mapped automatically.
 
 ## Run an interaction
 

@@ -40,7 +40,11 @@ class InteractionWorker(threading.Thread):
                 print(f"[{self.address}] Connected; {self.label} ready.", flush=True)
                 while not self.stop_event.is_set():
                     frame_start = time.monotonic()
-                    for event in session.drain():
+                    events = session.drain()
+                    if getattr(session, 'input_reset', False):
+                        session.input_reset = False
+                        animation.reconnect()  # Clear held pads, preserving game progress.
+                    for event in events:
                         if animation.bank_for(event.note) is None and event.note not in unmapped:
                             unmapped.add(event.note)
                             print(f"[{self.address}] Unmapped note {event.note}; use --base-note for a custom preset.", flush=True)

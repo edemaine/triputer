@@ -10,6 +10,7 @@ import time
 
 from .midi import MidiEvent
 from .jpmini import pad_colors
+from .preset import PresetGuard
 
 DEVICE = "org.bluez.Device1"
 SERVICE = "org.bluez.GattService1"
@@ -219,6 +220,9 @@ class BluetoothSession:
         self.decoder = BleMidiDecoder()
         self.events = 0
         self.packet_errors = 0
+        self.guard = None
+        self.input_reset = False
+        self.next_preset_check = 0
 
     def open(self, stop):
         objects = managed_objects(self.bus)
@@ -270,8 +274,20 @@ class BluetoothSession:
         self.bus.call(midi_path, CHARACTERISTIC, "StartNotify")
         self.subscribed = True
         self.lights = GioPadLights(self.bus, path, objects, self.chunk_delay)
+        if self.lights.notifier is None:
+            raise RuntimeError('Preset verification endpoint AE42 is unavailable')
+        self.guard = PresetGuard(self.lights.send_message, stop,
+                                 lambda message: print(f'[{self.address}] {message}', flush=True))
+        self.matches.append(self.bus.subscribe(self.lights.notifier, self._settings_changed))
+        self.guard.ensure()
+        self._take_pending()  # Discard setup/correction presses, including lost releases.
+        self.next_preset_check = time.monotonic() + 1
         if self.lost.is_set():
             raise RuntimeError("Disconnected while setting up MIDI")
+
+    def _settings_changed(self, interface, changed, invalidated):
+        if interface == CHARACTERISTIC and self.guard and not self.lost.is_set():
+            self.guard.receive(changed.get('Value', []))
 
     def _device_changed(self, interface, changed, invalidated):
         if interface == DEVICE and (
@@ -305,14 +321,30 @@ class BluetoothSession:
                 self.lost.set()
                 return
 
+    def _take_pending(self):
+        events = []
+        while True:
+            try:
+                events.append(self.pending.get_nowait())
+            except queue.Empty:
+                return events
+
     def drain(self):
         if self.lost.is_set():
             raise RuntimeError("Bluetooth disconnected or MIDI input needs resynchronization")
-        while True:
-            try:
-                yield self.pending.get_nowait()
-            except queue.Empty:
-                return
+        events = self._take_pending()
+        # Verify every batch before delivering it, as overlapping notes cannot
+        # identify the preset. Idle checks also correct switches without a tap.
+        if self.guard and (events or time.monotonic() >= self.next_preset_check):
+            corrected = self.guard.ensure()
+            self.next_preset_check = time.monotonic() + 1
+            if corrected:
+                self._take_pending()
+                self.input_reset = True
+                events = []
+        if self.lost.is_set():
+            raise RuntimeError('Bluetooth disconnected during preset verification')
+        return events
 
     def send(self, colors):
         if self.lost.is_set():
@@ -370,6 +402,10 @@ class GioPadLights:
 
     def send(self, colors):
         frame = pad_colors(colors)
+        self.send_message(frame)
+
+    def send_message(self, frame):
+        # The device worker serializes settings queries/writes and LED frames.
         options = {"type": self.bus.GLib.Variant("s", "command")}
         for start in range(0, len(frame), 20):
             self.bus.call(self.writer, CHARACTERISTIC, "WriteValue", "(aya{sv})",

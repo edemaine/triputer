@@ -1,5 +1,12 @@
 # Third-party acknowledgments
 
+The JP MINI preset query/selection protocol in `controllers/preset.py` was
+independently implemented from static inspection of **KuSuite 5.3**, the
+[manufacturer's configuration editor](https://www.kuwee.cn/download).
+KuSuite code and binaries are not distributed with Triputer. The inspected
+functions and hardware verification are documented in
+[JP MINI preset detection](docs/jpmini-protocol.md).
+
 The JP MINI protocol encoder in `controllers/jpmini.py` is adapted from
 [padmon](https://tangled.org/faz.ms/padmon/blob/main/jpmini.py).
 
