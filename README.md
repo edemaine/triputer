@@ -24,6 +24,43 @@ Triputer automatically restores **Preset 1** if a child changes a JP MINI's
 preset. See [preset selection](docs/setup.md#jp-mini-preset-selection) for details
 and manual recovery.
 
+## Web launcher
+
+Choose an interaction, watch its animated preview, and **Start on all**.
+Drag an app onto a controller to play it just there, or select controllers and
+use **Start on selected** to assign that interaction to those controllers.
+Controllers running the same interaction share one session. Starting it on
+another controller joins that session, preserving existing progress and settings.
+Each controller's **Actions** dropdown has **Play selected**, **Stop**, and
+**Restart interaction**. Restart resets everyone playing that interaction.
+
+```sh
+./scripts/upload
+./scripts/pi -t 'cd ~/triputer && python3 -m server --reload'
+```
+
+Open **http://triputer.local:3333** on your local network. Stop any running CLI
+interaction first. The server and CLI share an engine lock; only one can own
+the controllers at a time. No additional Python packages are needed beyond
+the existing Pi setup.
+
+For a server that starts automatically on Pi boot and survives SSH disconnects,
+see [Start the web server on boot](docs/setup.md#start-the-web-server-on-boot).
+
+**Start on all** assigns every known controller. Newly discovered controllers
+join the interaction assigned to the most current controllers; ties or no running
+interactions leave them idle. Existing assignments, including stopped controllers,
+survive disconnects. Today's games keep independent state on
+each controller; future interactions can share gameplay across controllers.
+Assignments and settings survive server restarts, but game progress resets.
+When an interaction is already running, the brightness control shows its current
+setting; **Restart interaction** applies changes to all controllers playing it.
+
+`--reload` restarts the whole server after code changes, restores assignments,
+and refreshes the browser. Uploads finish before reload starts. For a
+hardware-free playground, run `python3 -m server --demo` on your computer and
+open http://localhost:3333. The little device grids are tappable in demo mode.
+
 ## Fill
 
 Fill the grid one color at a time. Every pad starts black; tapping it turns it
@@ -70,7 +107,7 @@ same run; restarting the program starts fresh. Ctrl+C stops and clears the LEDs.
 Stop any other LED interaction before running coloring.
 
 Module execution also works: `python3 -m interactions.coloring`. Options include
-`--brightness`, `--address` (repeat for multiple controllers), `--base-note`,
+`--brightness`, `--device` (repeat for multiple controllers), `--base-note`,
 `--fps`, `--chunk-delay`, and `--duration`, as with ripples.
 
 ## Color ripples
@@ -119,7 +156,7 @@ terminal so Ctrl+C reaches it. Run only one LED program at a time.
 `--speed` is measured in pads per second; `--period` and `--fade` are in seconds.
 The program also accepts `--brightness`, `--fps`, and `--chunk-delay`.
 To restrict it to specific paired controllers, pass
-`--address AA:BB:CC:DD:EE:FF`, repeating the option for additional addresses.
+`--device AA:BB:CC:DD:EE:FF`, repeating the option for additional addresses.
 Press/release coordinates and connection status print to the terminal. The
 ripple program reads BLE MIDI directly and does not need `--midi-port` or an
 ALSA MIDI bridge.

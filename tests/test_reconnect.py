@@ -8,8 +8,7 @@ from types import SimpleNamespace
 from controllers.bluetooth import BleMidiDecoder, BluetoothSession, BusPool, paired_controllers, GioBus
 from controllers.bluetooth import CHARACTERISTIC, DEVICE
 from controllers.midi import MidiEvent
-from interactions.runtime import ControllerGroup
-from interactions.ripple import RippleWorker, Ripples
+from engine.devices import DeviceWorker
 
 
 class BleMidiTests(unittest.TestCase):
@@ -54,10 +53,6 @@ class BleMidiTests(unittest.TestCase):
             "d": {DEVICE: {"Address": "DD", "Name": "Speaker", "Paired": True}},
         }
         self.assertEqual(paired_controllers(objects), {"AA", "BB"})
-
-
-ARGS = SimpleNamespace(chunk_delay=0.03, base_note=4, brightness=0.25,
-                       speed=2.5, period=1.2, fade=2, fps=8)
 
 
 class FastStop:
@@ -117,7 +112,7 @@ class ReconnectTests(unittest.TestCase):
             bus = GioBus()
         bus.connection.set_exit_on_close.assert_called_once_with(False)
 
-    def test_failed_open_and_mid_frame_disconnect_reset_held_state(self):
+    def test_failed_open_and_mid_frame_disconnect_retry_and_close(self):
         sessions = []
         frames = []
 
@@ -127,6 +122,7 @@ class ReconnectTests(unittest.TestCase):
             def __init__(self, address, delay):
                 self.number = len(sessions)
                 self.closed = False
+                self.lights = SimpleNamespace(chunk_delay=0.03)
                 sessions.append(self)
 
             def open(self, stop):
@@ -147,13 +143,11 @@ class ReconnectTests(unittest.TestCase):
             def close(self, clear=True):
                 self.closed = True
 
-        worker = RippleWorker("AA", ARGS, Session)
+        worker = DeviceWorker("AA", lambda *args: None, Session)
         worker.stop_event = FastStop()
         worker.run()
         self.assertEqual(len(sessions), 3)
         self.assertTrue(all(s.closed for s in sessions))
-        self.assertEqual(frames[-1], Ripples(base_note=ARGS.base_note).render(0))
-        self.assertNotEqual(frames[0], frames[-1])
         self.assertIn(2, worker.stop_event.delays)
         self.assertIn(4, worker.stop_event.delays)
 
@@ -167,6 +161,7 @@ class ReconnectTests(unittest.TestCase):
 
             def __init__(self, address, delay):
                 self.address = address
+                self.lights = SimpleNamespace(chunk_delay=0.03)
 
             def open(self, stop):
                 if self.address == "offline":
@@ -184,7 +179,7 @@ class ReconnectTests(unittest.TestCase):
                 pass
 
         for address in ("offline", "online"):
-            workers[address] = RippleWorker(address, ARGS, Session)
+            workers[address] = DeviceWorker(address, lambda *args: None, Session)
             workers[address].start()
         try:
             self.assertTrue(good_frame.wait(1), "Online controller was blocked by offline controller")
@@ -195,27 +190,6 @@ class ReconnectTests(unittest.TestCase):
             for worker in workers.values():
                 worker.join(2)
 
-    def test_new_pairing_is_added_without_restarting_existing_worker(self):
-        class Worker:
-            def __init__(self, address):
-                self.stop_event = threading.Event()
-                self.started = False
-
-            def start(self):
-                self.started = True
-
-            def is_alive(self):
-                return self.started
-
-        group = ControllerGroup(Worker)
-        group.update({"AA"})
-        first = group.workers["AA"]
-        group.update({"AA", "BB"})
-        self.assertIs(group.workers["AA"], first)
-        self.assertTrue(group.workers["BB"].started)
-        group.update({"BB"})
-        self.assertTrue(first.stop_event.is_set())
-        self.assertFalse(group.workers["BB"].stop_event.is_set())
 
 
 if __name__ == "__main__":

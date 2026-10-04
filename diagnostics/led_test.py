@@ -13,6 +13,7 @@ if __name__ == "__main__" and not __package__:
 
 from controllers.bluetooth import BLACK, PadLights
 from controllers.midi import MidiMonitor
+from engine.lock import EngineLock
 
 
 def run_test(lights, brightness, fps, hold):
@@ -50,7 +51,7 @@ def run_test(lights, brightness, fps, hold):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--address", help="Bluetooth address; defaults to the sole connected JP-Mini")
+    parser.add_argument("--device", help="Bluetooth address; defaults to the sole connected JP-Mini")
     parser.add_argument("--midi-port", help="ALSA input port; defaults to the sole JP-Mini port")
     parser.add_argument("--base-note", type=int, default=4, help="Bottom-left pad's note, 0–112 (default: 4)")
     parser.add_argument("--brightness", type=float, default=0.25, help="Maximum brightness, 0–1 (default: 0.25)")
@@ -64,10 +65,12 @@ def main():
             and 0.005 <= args.chunk_delay <= 1 and 0 <= args.hold <= 3600):
         parser.error("Require brightness in (0,1], fps in (0,60], chunk-delay in [0.005,1], hold in [0,3600].")
     lights = monitor = None
+    hardware_lock = EngineLock()
     status = 0
     try:
+        hardware_lock.acquire()
         monitor = MidiMonitor(args.midi_port, args.base_note)
-        lights = PadLights(args.address, args.chunk_delay)
+        lights = PadLights(args.device, args.chunk_delay)
         run_test(lights, args.brightness, args.fps, args.hold)
         if monitor.process.poll() is not None:
             raise RuntimeError("MIDI monitor exited unexpectedly; inspect the MIDI output above.")
@@ -89,6 +92,7 @@ def main():
             print(f"Observed {monitor.events} MIDI events.", flush=True)
             if not monitor.events:
                 print("No pad input observed; press pads during another run to verify simultaneous input.", flush=True)
+        hardware_lock.close()
     return status
 
 

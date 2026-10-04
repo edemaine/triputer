@@ -1,0 +1,15 @@
+[Unit]
+Description=Triputer web launcher
+
+[Service]
+Type=simple
+WorkingDirectory=%h/triputer
+ExecStart=/usr/bin/python3 -m server --reload
+Environment=PYTHONUNBUFFERED=1
+Restart=on-failure
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=60
+
+[Install]
+WantedBy=default.target

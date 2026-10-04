@@ -1,0 +1,1 @@
+"""Triputer web launcher."""

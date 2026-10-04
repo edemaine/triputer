@@ -205,7 +205,7 @@ To adjust the test, or select among multiple controllers:
 ```sh
 ./scripts/pi 'cd ~/triputer && python3 -m diagnostics.led_test --help'
 ./scripts/pi 'cd ~/triputer && python3 -m diagnostics.led_test --brightness 0.15 --hold 30'
-./scripts/pi 'cd ~/triputer && python3 -m diagnostics.led_test --address AA:BB:CC:DD:EE:FF --midi-port 128:0'
+./scripts/pi 'cd ~/triputer && python3 -m diagnostics.led_test --device AA:BB:CC:DD:EE:FF --midi-port 128:0'
 ```
 
 Choose the MIDI port from `aseqdump -l`; port numbers can change. Do not assume
@@ -227,7 +227,7 @@ faster host writes do not guarantee that the controller displays every frame.
 
 ## JP MINI preset selection
 
-Triputer's interactions automatically keep each JP MINI on
+Triputer's web server and CLI interactions automatically keep each JP MINI on
 **Preset 1**. They check on connection, before processing pad input, and about
 once per second while idle. If a child selects another preset, Triputer restores
 Preset 1 and verifies the result. Other controller settings, including the bank,
@@ -255,11 +255,104 @@ read-only diagnostic. Custom preset layouts are not mapped automatically.
 
 ## Run an interaction
 
+The [web launcher](../README.md#web-launcher) manages the same engine as the CLI.
+Run `python3 -m server` on the Pi and open `http://triputer.local:3333` from your
+local network. It binds to all network interfaces by default; use
+`--host 127.0.0.1` for access only on the Pi, or `--port N` to change ports.
+This is a local-network control page with no login.
+
+CLI commands still work as scripts or modules. `--device AA:BB:CC:DD:EE:FF`
+restricts an interaction to a controller; repeat it to select several. Omit
+it for all paired compatible controllers, including ones paired later.
+`--address` is not supported. Stop the web server before running an interaction
+or the LED diagnostic directly. The engine lock is stored at
+`~/.cache/triputer/engine.lock`; it is released automatically when the owner exits.
+
 Once setup is complete, try [Fill](../README.md#fill), [coloring](../README.md#coloring), or
-[color ripples](../README.md#color-ripples). Both read BLE MIDI directly;
-the ALSA MIDI check above is a diagnostic and is not required for either game.
+[color ripples](../README.md#color-ripples). All read BLE MIDI directly;
+the ALSA MIDI check above is a diagnostic and is not required for the games.
+
+## Start the web server on boot
+
+Upload the project with `./scripts/upload`, then run these commands on the Pi
+as your normal user (the upload location is `~/triputer`):
+
+```sh
+mkdir -p ~/.config/systemd/user
+install -m 644 ~/triputer/scripts/triputer.service ~/.config/systemd/user/triputer.service
+systemctl --user daemon-reload
+loginctl enable-linger
+systemctl --user enable --now triputer.service
+```
+
+Lingering starts your user services during boot, without requiring an SSH login.
+Check it with `loginctl show-user "$USER" -p Linger`; it should say `Linger=yes`.
+If enabling it requires administrator permission, run
+`sudo loginctl enable-linger "$USER"` in your Pi terminal.
+Stop any manually launched server or interaction before starting the service.
+
+Open `http://triputer.local:3333`. The service runs as your user, preserves saved
+controller assignments, and uses `--reload` so completed uploads restart the
+server automatically. It continues running after you disconnect SSH.
+
+Manage it from a Pi terminal:
+
+```sh
+systemctl --user status triputer.service
+journalctl _SYSTEMD_USER_UNIT=triputer.service -f
+systemctl --user restart triputer.service
+systemctl --user stop triputer.service
+systemctl --user start triputer.service
+```
+
+Stop the service before running a CLI interaction or LED diagnostic; start it
+again afterward. To turn off autostart and stop the server:
+
+```sh
+systemctl --user disable --now triputer.service
+```
+
+The unit lives in `scripts/triputer.service`. If you change its command or
+installation directory, reinstall it with `install` above, run
+`systemctl --user daemon-reload`, then restart the service. Changes to Python
+or web assets only need an upload. A Python import error during development
+leaves the reload supervisor waiting for another edit; inspect the journal
+and upload the correction.
 
 ## Development checks
+
+Use `python3 -m server --reload` for automatic reloads, or add `--demo` to develop
+without Bluetooth. The development supervisor restarts the server in a fresh
+interpreter after edits to Python or web assets. Assignment state is saved to
+`~/.local/state/triputer/web.json` (`demo.json` in demo mode); `--state PATH`
+selects another file. State contains interaction assignments and
+settings, not drawings or animation progress. An import error is printed in
+the terminal; fixing the file triggers another restart.
+
+`scripts/upload` places a `.uploading` marker on the Pi while copying files.
+The reload supervisor waits for the marker to disappear, then for files to
+settle. A failed upload leaves the marker in place; rerun the upload to finish
+it. Remove the marker manually only after ensuring the uploaded code is complete.
+
+`engine/` owns device discovery, reconnects, session assignments, and rendering.
+Each interaction has at most one running session; assigning another controller
+joins it without resetting existing progress or settings. Newly discovered
+controllers join the most-used interaction among current paired controllers;
+ties leave them idle. Existing assignments (including stopped devices) are kept.
+CLI `--device` restrictions disable this automatic assignment to other controllers.
+Explicit restart resets every controller assigned to that interaction. Saved
+state records device assignments, with no main interaction. Older saved sessions
+are merged by interaction and their previous assignments are migrated on discovery.
+Game state and session changes run on one engine thread; Bluetooth workers only
+queue input and write the latest frame. A session implements `add(device)`,
+`remove(device)`, `reconnect(device)`, `handle(device, event)`, and
+`render(device, now)`. The adapter in `engine/registry.py` keeps today's games
+independent per controller; a future session factory can share state across
+devices. Register its factory and UI metadata there.
+
+`server/` contains the HTTP API, static interface, and hardware-free previews
+rendered by the actual interaction classes. CLI wrappers in
+`interactions/runtime.py` create their own engine instance without the web UI.
 
 Code is organized into `controllers/` for hardware support, `interactions/`
 for games, `diagnostics/` for hardware tests, and `tests/` for automated tests.
@@ -269,7 +362,7 @@ Direct execution also works: `python3 interactions/ripple.py` or
 `python3 diagnostics/led_test.py`. When using a script path, you can run from
 any directory; imports are resolved relative to the script.
 
-All interactions share connection management in `interactions/runtime.py` and
+All interactions share connection management in `engine/` and
 the color encoder in `controllers/jpmini.py`. The LED test uses
 `controllers/midi.py` and `controllers/bluetooth.py`; ripples use GIO's thread-safe D-Bus connections in
 `controllers/bluetooth.py` for address-specific input and output. To check

@@ -450,7 +450,7 @@ class PadLights:
         if len(matches) != 1:
             raise RuntimeError(
                 f"Found {len(matches)} matching connected controllers. "
-                "Connect one JP MINI, or select one with --address."
+                "Connect one JP MINI, or select one with --device."
             )
         path, device = matches[0]
         if not device.get("ServicesResolved"):

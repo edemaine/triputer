@@ -13,7 +13,7 @@ if __name__ == "__main__" and not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from controllers.jpmini import note_to_position, note_bank
-from interactions.runtime import InteractionWorker, add_arguments, validate_arguments, run
+from interactions.runtime import add_arguments, validate_arguments, run
 
 PALETTES = {
     base: [colorsys.hsv_to_rgb((i / 16 + shift) % 1, 1, 1) for i in range(16)]
@@ -134,13 +134,6 @@ class Ripples:
         return [tuple(round(c * self.brightness * 255) for c in color) for color in colors]
 
 
-class RippleWorker(InteractionWorker):
-    def __init__(self, address, args, session_factory):
-        super().__init__(address, args, session_factory,
-                         lambda: Ripples(args.base_note, args.brightness, args.speed,
-                                         args.period, args.fade), "ripples")
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     add_arguments(parser)
@@ -152,7 +145,7 @@ def main():
     for name, low, high in (("speed", 0.1, 20), ("period", 0.1, 30), ("fade", 0.1, 60)):
         if not low <= getattr(args, name) <= high:
             parser.error(f"{name} must be between {low} and {high}")
-    return run(args, RippleWorker, "Hold pads for ripples")
+    return run(args, 'ripple', "Hold pads for ripples")
 
 
 if __name__ == "__main__":

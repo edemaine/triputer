@@ -9,7 +9,7 @@ if __name__ == "__main__" and not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from controllers.jpmini import note_bank, note_to_position
-from interactions.runtime import InteractionWorker, add_arguments, validate_arguments, run
+from interactions.runtime import add_arguments, validate_arguments, run
 
 PALETTE = (
     ("black", (0, 0, 0)),
@@ -76,18 +76,12 @@ class Coloring:
                 for index in self.pixels]
 
 
-class ColoringWorker(InteractionWorker):
-    def __init__(self, address, args, session_factory):
-        super().__init__(address, args, session_factory,
-                         lambda: Coloring(args.base_note, args.brightness), "coloring")
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     add_arguments(parser)
     args = parser.parse_args()
     validate_arguments(parser, args)
-    return run(args, ColoringWorker, "Tap pads to cycle colors")
+    return run(args, 'coloring', "Tap pads to cycle colors")
 
 
 if __name__ == "__main__":

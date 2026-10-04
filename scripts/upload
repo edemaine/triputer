@@ -2,11 +2,15 @@
 # Copy the programs to ~/triputer, or upload the files supplied as arguments.
 set -eu
 . "$(dirname "$0")/pi-config.sh"
-ssh "$PI" 'mkdir -p -- "$HOME/triputer"'
+ssh "$PI" 'mkdir -p -- "$HOME/triputer"; touch "$HOME/triputer/.uploading"'
 if [ "$#" -eq 0 ]; then
     set -- "$PROJECT_ROOT/controllers" "$PROJECT_ROOT/interactions" \
         "$PROJECT_ROOT/diagnostics" "$PROJECT_ROOT/tests" \
+        "$PROJECT_ROOT/engine" "$PROJECT_ROOT/server" \
+        "$PROJECT_ROOT/scripts" \
         "$PROJECT_ROOT/THIRD_PARTY_LICENSES.md" "$PROJECT_ROOT/README.md" \
         "$PROJECT_ROOT/docs"
 fi
-exec scp -r "$@" "$PI:triputer/"
+scp -r "$@" "$PI:triputer/"
+# Leave the marker on failure so development reload never imports a partial upload.
+ssh "$PI" 'rm -f -- "$HOME/triputer/.uploading"'

@@ -10,7 +10,7 @@ if __name__ == "__main__" and not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from interactions.coloring import Coloring
-from interactions.runtime import InteractionWorker, add_arguments, validate_arguments, run
+from interactions.runtime import add_arguments, validate_arguments, run
 
 # Alternate strongly differing RGB colors, including the wrap back to black.
 PALETTE = (
@@ -86,18 +86,12 @@ class Fill(Coloring):
                       for base, highlight in zip(color, accent)) for amount in amounts]
 
 
-class FillWorker(InteractionWorker):
-    def __init__(self, address, args, session_factory):
-        super().__init__(address, args, session_factory,
-                         lambda: Fill(args.base_note, args.brightness), "fill")
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     add_arguments(parser)
     args = parser.parse_args()
     validate_arguments(parser, args)
-    return run(args, FillWorker, "Tap every pad to fill the next color")
+    return run(args, 'fill', "Tap every pad to fill the next color")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Triputer</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+<header><a class="brand" href="/" aria-label="Triputer home"><span class="brand-mark"><i></i><i></i><i></i><i></i></span>triputer<span class="brand-dot">.</span></a><span id="connection" class="connection">Connecting…</span></header>
+<main>
+  <section class="devices-section" aria-labelledby="devices-heading">
+    <div class="section-heading"><div><h2 id="devices-heading">Controllers <span id="device-count" class="count">0</span></h2></div><p>Drop an interaction onto a controller to play just there.</p></div>
+    <div id="devices" class="devices"><p class="empty">Looking for paired controllers…</p></div>
+  </section>
+  <div id="notice" role="status" aria-live="polite"></div>
+  <div class="workspace">
+    <section class="library" aria-labelledby="library-heading"><h2 id="library-heading">Interactions</h2><div id="apps" class="apps"></div></section>
+    <section class="detail" aria-labelledby="app-title"><div class="detail-body"><div class="preview-wrap"><div id="preview" class="pad-grid preview-grid" aria-label="Animated interaction preview"></div><button id="pause" class="preview-toggle" aria-label="Pause preview" title="Pause preview">⏸︎</button></div><div class="description"><h1 id="app-title">Fill</h1><p id="app-description"></p></div></div>
+      <div class="settings"><div class="settings-heading"><label for="brightness">Brightness <output id="brightness-value">25%</output></label><button id="reset-brightness" class="text-button" aria-label="Reset brightness to 25%" disabled>Reset</button></div><input id="brightness" type="range" min="1" max="100" value="25"><p id="settings-note" class="muted"></p></div>
+      <div class="actions"><button id="start" class="primary">▶ Start on all</button><button id="start-selected" class="secondary" disabled>Start on selected</button><button id="restart" class="secondary" hidden>Restart interaction</button><button id="stop" class="text-button stop">Stop all</button></div>
+    </section>
+  </div>
+  <details class="activity"><summary>Activity & connection details</summary><pre id="logs">No activity yet.</pre></details>
+</main><footer id="mode-note"></footer>
+<script src="/app.js"></script></body></html>
