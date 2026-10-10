@@ -90,6 +90,32 @@ its progress during the same run; restarting starts black again. Stop other LED
 interactions first. Ctrl+C stops and clears the LEDs. Module execution works
 with `python3 -m interactions.fill`; options are the same as Coloring below.
 
+## Flit
+
+Like Fill, with freely toggling pads. Start with black and white; every fresh tap
+switches its pad to the other color. Match all 16 pads to earn Fill's pulse and
+spiral celebration and move to the next neighboring pair of colors.
+
+Filling the newer color continues in the same direction through Fill's palette.
+Returning the grid to the older color reverses direction. For example, filling
+white unlocks white/blue; returning to all white instead of filling blue unlocks
+white/black. Returning the initial black/white grid to black unlocks black/cyan.
+The sequence wraps in either direction.
+
+A fresh tap during the celebration ends the effect and toggles the pad using
+the new color pair. Holding or changing pressure does not toggle again.
+Bank changes and reconnections preserve each controller's progress and direction;
+restarting starts black again.
+
+Choose **Flit** in the web launcher, or run:
+
+```sh
+./scripts/pi -t 'cd ~/triputer && python3 -m interactions.flit'
+```
+
+Direct execution works with `python3 interactions/flit.py`. Options are the same
+as Fill and Coloring.
+
 ## Coloring
 
 Draw 4×4 pixel art by tapping pads. Every pixel starts black. Each tap advances

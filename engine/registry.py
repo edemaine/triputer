@@ -4,10 +4,11 @@ import math
 
 CATALOG = {
     'fill': dict(name='Fill', symbol='▦', color='#ffc857', description='Fill every square to unlock the next color.'),
+    'flit': dict(name='Flit', symbol='⇄', color='#b6a2ff', description='Tap to toggle between two colors. Match the grid to continue or reverse the color sequence.'),
     'coloring': dict(name='Coloring', symbol='✿', color='#ff86ae', description='Tap a square to cycle its color and draw your own 4×4 picture.'),
     'ripple': dict(name='Ripples', symbol='◎', color='#79d8cf', description='Hold a pad to send rings of color across the grid. Try several fingers and watch their colors meet.'),
 }
-CLASSES = {'fill': 'Fill', 'coloring': 'Coloring', 'ripple': 'Ripples'}
+CLASSES = {'fill': 'Fill', 'flit': 'Flit', 'coloring': 'Coloring', 'ripple': 'Ripples'}
 DEFAULTS = dict(brightness=.25, fps=8., chunk_delay=.03, base_note=None)
 LIMITS = dict(brightness=(.001, 1), fps=(1, 60), chunk_delay=(.005, 1), speed=(.1, 20), period=(.1, 30), fade=(.1, 60))
 

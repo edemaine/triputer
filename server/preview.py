@@ -20,6 +20,17 @@ def preview(app):
             # Let the celebration finish before tapping into the next color.
             start = at + CELEBRATION_SECONDS + .5
         duration = start + .25
+    elif app == 'flit':
+        # Undo and redo a tap, fill white, then try blue and return to white.
+        # Returning to white reverses the sequence, so the final round is black.
+        rounds = ((0, 1, 0, 0, *range(2, 16)), (0, 1, 0, 1), tuple(range(16)))
+        start = .5
+        for pads in rounds:
+            for step, pad in enumerate(pads):
+                at = start + step * .28
+                events += [MidiEvent('on', 9, 4 + pad, 100, at), MidiEvent('off', 9, 4 + pad, 0, at + .18)]
+            start = at + CELEBRATION_SECONDS + .5
+        duration = start + .25
     elif app == 'coloring':
         # A tiny multicolored heart, built one tap at a time.
         for n, pad in enumerate((13, 14, 8, 9, 10, 11, 4, 5, 6, 7, 1, 2, 9, 10, 5, 6)):

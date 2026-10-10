@@ -39,6 +39,7 @@ class Fill(Coloring):
     def __init__(self, base_note=None, brightness=0.25):
         super().__init__(base_note, brightness)
         self.target = 1
+        self.celebration_accent = 0
         self.completed_at = None
         self.event_time = 0
 
@@ -58,6 +59,7 @@ class Fill(Coloring):
         self.pixels[pad] = self.target
         if all(pixel == self.target for pixel in self.pixels):
             self.completed_at = self.event_time
+            self.celebration_accent = (self.target - 1) % len(self.palette)
             self.target = (self.target + 1) % len(self.palette)
         return True
 
@@ -66,7 +68,7 @@ class Fill(Coloring):
         if elapsed is None or not 0 <= elapsed < CELEBRATION_SECONDS:
             return super().render(now)
         color = self.palette[self.pixels[0]][1]
-        accent = self.palette[(self.pixels[0] - 1) % len(self.palette)][1]
+        accent = self.palette[self.celebration_accent][1]
         if PULSE_SECONDS <= elapsed < PULSE_SECONDS + CHASE_SECONDS:
             chase_time = elapsed - PULSE_SECONDS
             cursor = chase_time / CHASE_SECONDS * len(SPIRAL)

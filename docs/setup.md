@@ -270,8 +270,8 @@ it for all paired compatible controllers, including ones paired later.
 or the LED diagnostic directly. The engine lock is stored at
 `~/.cache/triputer/engine.lock`; it is released automatically when the owner exits.
 
-Once setup is complete, try [Fill](../README.md#fill), [coloring](../README.md#coloring), or
-[color ripples](../README.md#color-ripples). All read BLE MIDI directly;
+Once setup is complete, try [Fill](../README.md#fill), [Flit](../README.md#flit),
+[coloring](../README.md#coloring), or [color ripples](../README.md#color-ripples). All read BLE MIDI directly;
 the ALSA MIDI check above is a diagnostic and is not required for the games.
 
 ## Start the web server on boot

@@ -92,6 +92,20 @@ class ServerTests(unittest.TestCase):
                 self.request(path, values, headers)
             self.assertEqual(error.exception.code, status)
 
+    def test_flit_launch_and_controller_isolation(self):
+        state = self.request('/api/state')
+        self.assertEqual(state['catalog']['flit']['name'], 'Flit')
+        a, b = (device['address'] for device in state['devices'][:2])
+        self.request('/api/start', {'interaction':'flit', 'devices':[a, b]})
+        for expected in ([64, 64, 64], None, [0, 64, 64]):
+            self.request('/api/tap', {'device':a, 'pad':0})
+            state = self.request('/api/state')
+            if expected is not None:  # The second tap starts the black celebration.
+                self.assertEqual(state['devices'][0]['frame'][0], expected)
+            self.assertEqual(state['devices'][1]['frame'], [[0, 0, 0]] * 16)
+        data = self.request('/api/preview/flit')
+        self.assertEqual(data['frames'][-1], [[0, 0, 0]] * 16)
+
     def test_assignments_join_one_interaction_and_restart_is_explicit(self):
         devices = self.request('/api/state')['devices']
         a, b = (d['address'] for d in devices[:2])
@@ -106,13 +120,13 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.request('/api/state')['devices'][0]['frame'][0], [0, 0, 0])
 
     def test_preview_uses_real_animation_and_has_moving_frames(self):
-        for app in ('fill','coloring','ripple'):
+        for app in ('fill','flit','coloring','ripple'):
             frames = preview(app)['frames']
             self.assertTrue(all(len(frame)==16 for frame in frames))
             self.assertGreater(len({str(frame) for frame in frames}), 3)
 
     def test_preview_press_indicators_and_two_fill_rounds(self):
-        for app in ('fill', 'coloring', 'ripple'):
+        for app in ('fill', 'flit', 'coloring', 'ripple'):
             data = preview(app)
             self.assertEqual(len(data['frames']), len(data['pressed']))
             self.assertTrue(any(data['pressed']))
@@ -128,7 +142,7 @@ class ServerTests(unittest.TestCase):
 
     def test_cli_direct_and_module_device_option_and_no_address_alias(self):
         root = Path(__file__).resolve().parent.parent
-        for app in ('fill','coloring','ripple'):
+        for app in ('fill','flit','coloring','ripple'):
             for prefix in ([str(root/'interactions'/f'{app}.py')], ['-m', f'interactions.{app}']):
                 result = subprocess.run([sys.executable, *prefix, '--help'], cwd=root, capture_output=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
@@ -136,6 +150,19 @@ class ServerTests(unittest.TestCase):
                 self.assertNotIn(b'--address', result.stdout)
             result = subprocess.run([sys.executable, '-m', f'interactions.{app}', '--address','AA:BB:CC:DD:EE:FF'], cwd=root, capture_output=True)
             self.assertEqual(result.returncode, 2)
+
+    def test_flit_preview_shows_toggles_and_reverses_from_blue_to_black(self):
+        data = preview('flit')
+        frames = data['frames']
+        black, white, blue = (0, 0, 0), (255, 255, 255), (0, 0, 255)
+        # Two pads are white; undoing the first leaves the other white.
+        undone = frames[math.ceil(1.06 * data['fps'])]
+        self.assertEqual(undone[:2], [black, white])
+        self.assertEqual(frames[math.ceil(1.34 * data['fps'])][:2], [white, white])
+        self.assertIn([white] * 16, frames)
+        blue_mix = next(index for index, frame in enumerate(frames) if white in frame and blue in frame)
+        self.assertTrue(any(white in frame and black in frame for frame in frames[blue_mix + 1:]))
+        self.assertEqual(frames[-1], [black] * 16)
 
 
 if __name__ == '__main__':
