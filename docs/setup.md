@@ -259,6 +259,8 @@ The [web launcher](../README.md#web-launcher) manages the same engine as the CLI
 Run `python3 -m server` on the Pi and open `http://triputer.local:3333` from your
 local network. It binds to all network interfaces by default; use
 `--host 127.0.0.1` for access only on the Pi, or `--port N` to change ports.
+By default, the server accepts IPv4 and IPv6 connections when supported, so
+`triputer.local` works with either address family; otherwise it uses IPv4.
 This is a local-network control page with no login.
 
 CLI commands still work as scripts or modules. `--device AA:BB:CC:DD:EE:FF`

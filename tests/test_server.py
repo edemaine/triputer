@@ -1,11 +1,14 @@
 """Real HTTP API, argument validation, and hardware-free previews."""
 import json
+from http.client import HTTPConnection
 import math
 from pathlib import Path
 import subprocess
 import sys
+import socket
 import threading
 import unittest
+from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
@@ -34,6 +37,39 @@ class ServerTests(unittest.TestCase):
         request = Request(self.url + path, data=body, headers=headers or {'Content-Type':'application/json'})
         with urlopen(request, timeout=3) as response:
             return json.load(response)
+
+    def check_listener(self, host, addresses, family):
+        server = make_server(self.engine, host, 0, demo=True)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            self.assertEqual(server.address_family, family)
+            for address in addresses:
+                with self.subTest(address=address):
+                    connection = HTTPConnection(address, server.server_port, timeout=3)
+                    try:
+                        connection.request('GET', '/api/state')
+                        response = connection.getresponse()
+                        self.assertEqual(response.status, 200)
+                        self.assertIn('fill', json.loads(response.read())['catalog'])
+                    finally:
+                        connection.close()
+        finally:
+            server.shutdown()
+            thread.join()
+            server.server_close()
+
+    @unittest.skipUnless(socket.has_dualstack_ipv6(), 'Dual-stack IPv6 unavailable')
+    def test_default_listener_accepts_ipv4_and_ipv6(self):
+        self.check_listener(None, ('127.0.0.1', '::1'), socket.AF_INET6)
+
+    @unittest.skipUnless(socket.has_ipv6, 'IPv6 unavailable')
+    def test_explicit_ipv6_listener(self):
+        self.check_listener('::1', ('::1',), socket.AF_INET6)
+
+    def test_default_listener_falls_back_without_dualstack(self):
+        with patch('server.app.socket.has_dualstack_ipv6', return_value=False):
+            self.check_listener(None, ('127.0.0.1',), socket.AF_INET)
 
     def test_start_stop_state_and_preview(self):
         self.assertEqual(len(self.request('/api/state')['devices']), 3)

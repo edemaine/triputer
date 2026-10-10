@@ -11,7 +11,7 @@ from .app import make_server
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--host', default='0.0.0.0')
+    parser.add_argument('--host', help='Listen address (default: all IPv4 and IPv6 interfaces when supported)')
     parser.add_argument('--port', type=int, default=3333)
     parser.add_argument('--reload', action='store_true')
     parser.add_argument('--demo', action='store_true', help='Use three simulated controllers; no Bluetooth required')
@@ -33,7 +33,10 @@ def main():
     try:
         http = make_server(engine, args.host, args.port, args.demo)
         engine.start()
-        print(f'Triputer listening on http://{args.host}:{http.server_port}', flush=True)
+        host = http.server_address[0]
+        if ':' in host:
+            host = f'[{host}]'
+        print(f'Triputer listening on http://{host}:{http.server_port}', flush=True)
         http.serve_forever(poll_interval=.2)
     except KeyboardInterrupt:
         pass

@@ -2,6 +2,7 @@
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
+import socket
 from urllib.parse import urlsplit
 
 from engine.registry import CATALOG
@@ -10,7 +11,18 @@ from .preview import preview
 STATIC = Path(__file__).parent / 'static'
 
 
-def make_server(engine, host='0.0.0.0', port=3333, demo=False):
+class IPv6HTTPServer(ThreadingHTTPServer):
+    address_family = socket.AF_INET6
+
+    def server_bind(self):
+        if self.server_address[0] == '::' and socket.has_dualstack_ipv6():
+            self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+        super().server_bind()
+
+
+def make_server(engine, host=None, port=3333, demo=False):
+    if host is None:
+        host = '::' if socket.has_dualstack_ipv6() else '0.0.0.0'
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, format, *args):
             pass
@@ -71,6 +83,7 @@ def make_server(engine, host='0.0.0.0', port=3333, demo=False):
             except Exception as error:
                 self.send(503, {'error': str(error)})
 
-    server = ThreadingHTTPServer((host, port), Handler)
+    server_class = IPv6HTTPServer if ':' in host else ThreadingHTTPServer
+    server = server_class((host, port), Handler)
     server.daemon_threads = True
     return server
